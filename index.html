@@ -1,0 +1,496 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Job Loss Runway</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=Public+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: inputs rail on the left, result + chart + scenario ledger on the right; stacks on phones. */
+:root {
+  --bg: #f5f7f4;
+  --surface: #ffffff;
+  --fg: #18221d;
+  --muted: #5d6b63;
+  --line: #dde3de;
+  --accent: #1f6b4a;
+  --accent-soft: #e2f0e8;
+  --warn: #b5541c;
+  --warn-soft: #fbe9dd;
+  --chart-base: #9aa69f;
+  --font-display: "Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+  --font-body: "Public Sans", "Segoe UI", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #111613; --surface: #18201c; --fg: #e6ece8; --muted: #9aa8a0; --line: #2a3530;
+    --accent: #5cc493; --accent-soft: #1d3329; --warn: #f0935a; --warn-soft: #3a261a; --chart-base: #5f6d66;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #111613; --surface: #18201c; --fg: #e6ece8; --muted: #9aa8a0; --line: #2a3530;
+  --accent: #5cc493; --accent-soft: #1d3329; --warn: #f0935a; --warn-soft: #3a261a; --chart-base: #5f6d66;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body { margin: 0; }
+[hidden] { display: none !important; }
+body {
+  background: var(--bg); color: var(--fg); font-family: var(--font-body); font-size: 15px; line-height: 1.5;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 28px 48px;
+}
+.wrap { max-width: 1080px; margin: 0 auto; display: flex; flex-direction: column; gap: 24px; }
+header h1 { font-family: var(--font-display); font-weight: 700; font-size: clamp(26px, 4vw, 34px); margin: 0; letter-spacing: -0.01em; text-wrap: balance; }
+header p { margin: 4px 0 0; color: var(--muted); max-width: 62ch; }
+.grid { display: grid; grid-template-columns: 300px minmax(0, 1fr); gap: 24px; align-items: start; }
+@media (max-width: 820px) { .grid { grid-template-columns: minmax(0, 1fr); } }
+
+.inputs { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 20px; display: flex; flex-direction: column; gap: 16px; }
+.field { display: flex; flex-direction: column; gap: 6px; }
+.field label { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); }
+.money { display: flex; align-items: center; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); }
+.money span { padding-left: 12px; color: var(--muted); font-family: var(--font-mono); }
+.money input, .field input[type="month"] {
+  flex: 1; min-width: 0; border: 0; background: transparent; color: var(--fg); font: 500 16px var(--font-mono);
+  padding: 10px 12px 10px 6px; font-variant-numeric: tabular-nums;
+}
+.field input[type="month"] { border: 1px solid var(--line); border-radius: 8px; background: var(--bg); padding-left: 12px; }
+.money:focus-within, .field input[type="month"]:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+.money input:focus { outline: none; }
+.extra { background: var(--accent-soft); border-radius: 8px; padding: 14px; margin-inline: -6px; display: flex; flex-direction: column; gap: 10px; }
+.extra label { color: var(--accent); }
+.extra .money { background: var(--surface); }
+input[type="range"] { width: 100%; accent-color: var(--accent); }
+.gapline { font-size: 13px; color: var(--muted); border-top: 1px solid var(--line); padding-top: 14px; display: flex; flex-direction: column; gap: 4px; }
+.gapline b { font-family: var(--font-mono); font-weight: 500; color: var(--fg); }
+button.reset { align-self: flex-start; background: none; border: 1px solid var(--line); color: var(--muted); border-radius: 6px; padding: 6px 12px; font: 500 13px var(--font-body); cursor: pointer; }
+button.reset:hover { color: var(--fg); border-color: var(--muted); }
+button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.main { display: flex; flex-direction: column; gap: 24px; min-width: 0; }
+.verdict { display: flex; flex-direction: column; gap: 6px; }
+.eyebrow { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); }
+.big { font-family: var(--font-display); font-weight: 700; font-size: clamp(34px, 6vw, 52px); line-height: 1.05; letter-spacing: -0.02em; }
+.big.ok { color: var(--accent); }
+.big.bad { color: var(--warn); }
+.sub { color: var(--muted); max-width: 60ch; }
+.stats { display: flex; flex-wrap: wrap; gap: 8px 28px; margin-top: 8px; }
+.stat { display: flex; flex-direction: column; }
+.stat span { font-size: 12px; color: var(--muted); }
+.stat b { font: 500 18px var(--font-mono); font-variant-numeric: tabular-nums; }
+
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 18px 18px 14px; min-width: 0; }
+.panel h2 { font-family: var(--font-display); font-weight: 500; font-size: 18px; margin: 0 0 2px; }
+.panel .hint { color: var(--muted); font-size: 13px; margin: 0 0 12px; }
+.legend { display: flex; gap: 18px; font-size: 13px; color: var(--muted); margin-bottom: 6px; flex-wrap: wrap; }
+.legend i { display: inline-block; width: 18px; height: 0; vertical-align: middle; margin-right: 6px; border-top: 3px solid var(--accent); }
+.legend i.base { border-top: 2px dashed var(--chart-base); }
+#chart { width: 100%; height: auto; display: block; }
+#chart text { fill: var(--muted); font: 11px var(--font-mono); }
+
+.tablewrap { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+th { text-align: left; font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); padding: 8px 10px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+td { padding: 9px 10px; border-bottom: 1px solid var(--line); font-family: var(--font-mono); font-size: 14px; white-space: nowrap; }
+td.num, th.num { text-align: right; }
+tbody tr { cursor: pointer; }
+tbody tr:hover td { background: var(--bg); }
+tbody tr.current td { background: var(--accent-soft); font-weight: 500; }
+.pill { display: inline-block; font: 600 11px var(--font-body); letter-spacing: 0.04em; text-transform: uppercase; padding: 2px 8px; border-radius: 999px; }
+.pill.ok { background: var(--accent-soft); color: var(--accent); }
+.pill.bad { background: var(--warn-soft); color: var(--warn); }
+.bar { height: 6px; border-radius: 3px; background: var(--accent); opacity: .55; min-width: 2px; }
+
+.daycare { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 18px 20px; display: flex; flex-direction: column; gap: 16px; }
+.dc-line { display: grid; grid-template-columns: minmax(0, 1fr) 200px 76px; gap: 12px 24px; align-items: end; }
+.dc-changes { display: flex; flex-direction: column; gap: 16px; }
+.dc-changes:empty { display: none; }
+.dc-changes .dc-line { border-top: 1px solid var(--line); padding-top: 16px; }
+@media (max-width: 700px) { .dc-line { grid-template-columns: minmax(0, 1fr); } .dc-spacer { display: none; } }
+button.add, button.remove { background: none; border: 1px solid var(--line); color: var(--muted); border-radius: 6px; padding: 8px 12px; font: 500 13px var(--font-body); cursor: pointer; }
+button.add { align-self: flex-start; color: var(--accent); border-color: var(--accent); border-style: dashed; }
+button.add:hover { background: var(--accent-soft); }
+button.remove:hover { color: var(--warn); border-color: var(--warn); }
+@media (max-width: 700px) { button.remove { justify-self: start; } }
+.daycare h2 { font-family: var(--font-display); font-weight: 500; font-size: 18px; margin: 0; }
+.daycare .hint { color: var(--muted); font-size: 13px; margin: 0; }
+.dc-cost { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.dc-row { display: flex; align-items: center; gap: 14px; }
+.dc-row input[type="range"] { flex: 1; min-width: 0; accent-color: var(--warn); }
+.dc-row .money { width: 130px; flex: none; }
+.dc-scale { display: flex; justify-content: space-between; font: 11px var(--font-mono); color: var(--muted); margin-right: 144px; }
+@media (max-width: 480px) { .dc-scale { margin-right: 0; } }
+details summary { cursor: pointer; font-family: var(--font-display); font-weight: 500; font-size: 18px; }
+details[open] summary { margin-bottom: 12px; }
+td.neg { color: var(--warn); }
+@media (prefers-reduced-motion: no-preference) { #line { transition: d .2s; } }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header>
+    <h1>Job Loss Runway</h1>
+    <p>How long the job loss fund lasts if your wife leaves her job, and how much her side income stretches it.</p>
+  </header>
+
+  <section class="daycare" aria-label="Daycare">
+    <div>
+      <h2>Daycare</h2>
+      <p class="hint">Added to monthly expenses from the start month onward. Add a cost change if the price goes up or down later.</p>
+    </div>
+    <div class="dc-line">
+      <div class="dc-cost">
+        <label class="eyebrow" for="dcCost">Daycare cost / month</label>
+        <div class="dc-row">
+          <input id="dcRange" data-role="range" type="range" min="0" max="2500" step="25" value="0" aria-label="Daycare cost slider">
+          <div class="money"><span>$</span><input id="dcCost" data-role="cost" type="number" inputmode="decimal" min="0" step="25" value="0"></div>
+        </div>
+        <div class="dc-scale" aria-hidden="true"><span>$0</span><span>$1,250</span><span>$2,500</span></div>
+      </div>
+      <div class="field">
+        <label for="dcStart">Daycare starts</label>
+        <input id="dcStart" data-role="start" type="month" value="2027-01">
+      </div>
+      <span class="dc-spacer"></span>
+    </div>
+    <div class="dc-changes" id="dcChanges"></div>
+    <button type="button" class="add" id="dcAdd">+ Add a cost change</button>
+  </section>
+
+  <div class="grid">
+    <form class="inputs" id="form" autocomplete="off">
+      <div class="field">
+        <label for="balance">Starting fund balance</label>
+        <div class="money"><span>$</span><input id="balance" type="number" inputmode="decimal" min="0" step="100" value="21900"></div>
+      </div>
+      <div class="field">
+        <label for="expenses">Monthly expenses</label>
+        <div class="money"><span>$</span><input id="expenses" type="number" inputmode="decimal" min="0" step="50" value="4300"></div>
+      </div>
+      <div class="field">
+        <label for="income">GTA stipend</label>
+        <div class="money"><span>$</span><input id="income" type="number" inputmode="decimal" min="0" step="25" value="2925"></div>
+      </div>
+      <div class="extra">
+        <label class="field" for="extra" style="font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.06em">Wife's extra income / month</label>
+        <div class="money"><span>$</span><input id="extra" type="number" inputmode="decimal" min="0" step="50" value="0"></div>
+        <input id="extraRange" type="range" min="0" max="2000" step="25" value="0" aria-label="Wife's extra income slider">
+      </div>
+      <div class="field">
+        <label for="start">First month without her paycheck</label>
+        <input id="start" type="month" value="2027-01">
+      </div>
+      <div class="gapline">
+        <div>Monthly shortfall before daycare: <b id="gap"></b></div>
+        <div>Monthly shortfall at peak daycare cost: <b id="gapDc"></b></div>
+        <div>Extra income needed to break even: <b id="breakeven"></b></div>
+      </div>
+      <button type="button" class="reset" id="reset">Reset to starting numbers</button>
+    </form>
+
+    <div class="main">
+      <section class="verdict" aria-live="polite">
+        <div class="eyebrow" id="verdictLabel">Fund runs out in</div>
+        <div class="big" id="verdict"></div>
+        <div class="sub" id="verdictSub"></div>
+        <div class="stats">
+          <div class="stat"><span>Months fully covered</span><b id="sMonths"></b></div>
+          <div class="stat"><span>Net change / month</span><b id="sNet"></b></div>
+          <div class="stat"><span>Extra time vs. $0 side income</span><b id="sGain"></b></div>
+        </div>
+      </section>
+
+      <section class="panel">
+        <h2>Fund balance over time</h2>
+        <div class="legend"><span><i></i>This scenario</span><span><i class="base"></i>No extra income</span></div>
+        <svg id="chart" viewBox="0 0 640 260" role="img" aria-label="Fund balance by month"></svg>
+      </section>
+
+      <section class="panel">
+        <h2>Side income scenarios</h2>
+        <p class="hint">Uses your current balance, expenses and income. Tap a row to load it.</p>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th class="num">Extra / mo</th><th>Last covered month</th><th class="num">Runway</th><th style="width:30%"></th></tr></thead>
+            <tbody id="scen"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="panel">
+        <details>
+          <summary>Month-by-month ledger</summary>
+          <div class="tablewrap">
+            <table>
+              <thead><tr><th>Month</th><th class="num">Start</th><th class="num">In</th><th class="num">Expenses</th><th class="num">Daycare</th><th class="num">End</th></tr></thead>
+              <tbody id="ledger"></tbody>
+            </table>
+          </div>
+        </details>
+      </section>
+    </div>
+  </div>
+</div>
+
+<script>
+(() => {
+  const DEFAULTS = { balance: 21900, expenses: 4300, income: 2925, extra: 0, start: "2027-01", dcCost: 0, dcStart: "2027-01" };
+  const $ = id => document.getElementById(id);
+  const fmt = n => (n < 0 ? "−$" : "$") + Math.abs(Math.round(n)).toLocaleString("en-US");
+  const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+  const LONG = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+  const num = el => { const v = parseFloat(el.value); return isFinite(v) && v >= 0 ? v : 0; };
+  const MAX_MONTHS = 600;
+
+  function monthAt(start, i) {
+    const [y, m] = start.split("-").map(Number);
+    const t = (m - 1) + i;
+    return { y: y + Math.floor(t / 12), m: ((t % 12) + 12) % 12 };
+  }
+  const short = d => `${MONTHS[d.m]} ${d.y}`;
+  const long = d => `${LONG[d.m]} ${d.y}`;
+
+  const monthsBetween = (a, b) => { const [ay, am] = a.split("-").map(Number); const [by, bm] = b.split("-").map(Number); return (by - ay) * 12 + (bm - am); };
+
+  // Month i pays expenses, plus daycare from month index k on.
+  // covered = months fully paid before the fund goes negative; Infinity if it never does.
+  function readSchedule(start) {
+    return [...document.querySelectorAll(".dc-line")].map((line, order) => ({
+      idx: monthsBetween(start, line.querySelector('[data-role="start"]').value || start),
+      cost: num(line.querySelector('[data-role="cost"]')),
+      order
+    })).sort((a, b) => a.idx - b.idx || a.order - b.order);
+  }
+
+  // Daycare is a schedule of {idx, cost}: each entry sets the monthly cost from month idx onward.
+  function simulate(P, extra) {
+    const inc = P.income + extra;
+    const sched = P.dcSched;
+    const dcAt = i => { let c = 0; for (const p of sched) if (i >= p.idx) c = p.cost; return c; };
+    const k = sched.length ? Math.max(0, sched[sched.length - 1].idx) : 0;
+    const netBefore = inc - P.expenses - dcAt(0), netAfter = inc - P.expenses - dcAt(k);
+    const rows = [];
+    let b = P.balance;
+    for (let i = 0; i < MAX_MONTHS; i++) {
+      const dci = dcAt(i);
+      const s = b, e = b + inc - P.expenses - dci;
+      rows.push({ s, inc, exp: P.expenses, dc: dci, end: e });
+      if (e < 0) return { covered: i, netBefore, netAfter, k, rows };
+      b = e;
+      if (netAfter >= 0 && i >= Math.max(35, k + 23)) break;
+    }
+    return { covered: Infinity, netBefore, netAfter, k, rows };
+  }
+
+  function render() {
+    const P = { balance: num($("balance")), expenses: num($("expenses")), income: num($("income")), extra: num($("extra")), start: $("start").value || DEFAULTS.start,
+    };
+    P.dcSched = readSchedule(P.start);
+    P.dcMax = Math.max(0, ...P.dcSched.map(p => p.cost));
+    const r = simulate(P, P.extra);
+    const base = simulate(P, 0);
+    const gap = P.expenses - P.income;
+    const gapDc = gap + P.dcMax;
+    r.net = r.netAfter; base.net = base.netAfter;
+
+    $("gap").textContent = gap > 0 ? fmt(gap) : "none";
+    $("gapDc").textContent = P.dcMax > 0 ? (gapDc > 0 ? fmt(gapDc) : "none") : "no daycare set";
+    $("breakeven").textContent = gapDc > 0 ? fmt(gapDc) + " / mo" : "$0";
+
+    // Verdict
+    const v = $("verdict");
+    if (r.covered === Infinity) {
+      $("verdictLabel").textContent = "Fund status";
+      v.textContent = r.net === 0 ? "Holds steady" : "Never runs out";
+      v.className = "big ok";
+      $("verdictSub").textContent = r.net === 0
+        ? "Income exactly covers expenses, so the fund stays at its starting balance."
+        : `Income covers expenses, so the fund grows by ${fmt(r.net)} each month.`;
+      $("sMonths").textContent = "All";
+    } else {
+      const out = monthAt(P.start, r.covered);
+      const last = monthAt(P.start, r.covered - 1);
+      const leftover = r.covered > 0 ? r.rows[r.covered - 1].end : P.balance;
+      $("verdictLabel").textContent = "Fund runs out in";
+      v.textContent = long(out);
+      v.className = "big bad";
+      const outRow = r.rows[r.covered];
+      const need = outRow.exp + outRow.dc - outRow.inc;
+      $("verdictSub").textContent = r.covered > 0
+        ? `Bills are fully covered through ${long(last)}. That leaves ${fmt(leftover)}, which is ${fmt(need - leftover)} short of covering ${long(out)}.`
+        : `The fund can't cover the first month's shortfall of ${fmt(need)}.`;
+      $("sMonths").textContent = r.covered + (r.covered === 1 ? " month" : " months");
+    }
+    const sign = n => (n >= 0 ? "+" : "") + fmt(n);
+    $("sNet").textContent = r.netBefore !== r.netAfter ? `${sign(r.netBefore)} → ${sign(r.netAfter)}` : sign(r.netAfter);
+    if (base.covered === Infinity) $("sGain").textContent = "—";
+    else if (r.covered === Infinity) $("sGain").textContent = "Indefinite";
+    else { const g = r.covered - base.covered; $("sGain").textContent = g === 0 ? "None" : `+${g} mo`; }
+
+    drawChart(P, r, base);
+    renderScenarios(P);
+    renderLedger(P, r);
+  }
+
+  function drawChart(P, r, base) {
+    const svg = $("chart");
+    const W = 640, H = 260, L = 58, R = 14, T = 12, B = 30;
+    const dcMark = P.dcMax > 0 ? r.k : -1;
+    const horizon = Math.max(12, Math.min(120,
+      (r.covered === Infinity ? Math.max(base.covered === Infinity ? 24 : base.covered + 6, 24, dcMark + 12) : r.covered + 3)));
+    const series = rs => { const pts = [P.balance]; for (let i = 0; i < horizon; i++) { const row = rs.rows[i]; pts.push(row ? Math.max(row.end, 0) : (rs.covered === Infinity ? pts[pts.length-1] + rs.net : 0)); } return pts; };
+    const a = series(r), b = series(base);
+    const maxV = Math.max(...a, ...b, 1);
+    const step = niceStep(maxV / 4);
+    const top = Math.ceil(maxV / step) * step;
+    const x = i => L + (i / horizon) * (W - L - R);
+    const y = v => T + (1 - v / top) * (H - T - B);
+    let s = "";
+    for (let v = 0; v <= top + 1e-6; v += step) {
+      s += `<line x1="${L}" x2="${W - R}" y1="${y(v)}" y2="${y(v)}" stroke="var(--line)" stroke-width="1"/>`;
+      s += `<text x="${L - 8}" y="${y(v) + 4}" text-anchor="end">${v >= 1000 ? "$" + (v/1000).toLocaleString("en-US",{maximumFractionDigits:1}) + "k" : "$" + v}</text>`;
+    }
+    const tickEvery = horizon <= 18 ? 3 : horizon <= 40 ? 6 : 12;
+    for (let i = 0; i <= horizon; i += tickEvery) {
+      const d = monthAt(P.start, i);
+      s += `<text x="${x(i)}" y="${H - 8}" text-anchor="${i === 0 ? "start" : "middle"}">${MONTHS[d.m]} ’${String(d.y).slice(2)}</text>`;
+    }
+    const path = pts => pts.map((v, i) => `${i ? "L" : "M"}${x(i).toFixed(1)},${y(v).toFixed(1)}`).join("");
+    let prev = 0, lane = 0;
+    P.dcSched.forEach(p => {
+      const changed = p.cost !== prev; prev = p.cost;
+      if (!changed || p.idx <= 0 || p.idx > horizon) return;
+      const xd = x(p.idx);
+      s += `<line x1="${xd}" x2="${xd}" y1="${T}" y2="${H - B}" stroke="var(--muted)" stroke-width="1" stroke-dasharray="2 3"/>`;
+      const an = xd > W - 150 ? "end" : "start";
+      s += `<text x="${xd + (an === "end" ? -6 : 6)}" y="${H - B - 8 - lane * 14}" text-anchor="${an}">Daycare ${fmt(p.cost)} from ${short(monthAt(P.start, p.idx))}</text>`;
+      lane++;
+    });
+    s += `<path d="${path(a)} L${x(horizon)},${y(0)} L${x(0)},${y(0)}Z" fill="var(--accent)" opacity=".1"/>`;
+    s += `<path d="${path(b)}" fill="none" stroke="var(--chart-base)" stroke-width="2" stroke-dasharray="5 4"/>`;
+    s += `<path id="line" d="${path(a)}" fill="none" stroke="var(--accent)" stroke-width="2.5" stroke-linejoin="round"/>`;
+    if (r.covered !== Infinity && r.covered <= horizon) {
+      const xi = x(r.covered);
+      s += `<line x1="${xi}" x2="${xi}" y1="${T}" y2="${H - B}" stroke="var(--warn)" stroke-width="1.5" stroke-dasharray="3 3"/>`;
+      s += `<circle cx="${xi}" cy="${y(a[r.covered])}" r="4.5" fill="var(--warn)"/>`;
+      const anchor = xi > W - 120 ? "end" : "start";
+      s += `<text x="${xi + (anchor === "end" ? -6 : 6)}" y="${T + 12}" text-anchor="${anchor}" style="fill:var(--warn)">Last covered: ${short(monthAt(P.start, r.covered - 1))}</text>`;
+    } else {
+      s += `<circle cx="${x(horizon)}" cy="${y(a[horizon])}" r="4.5" fill="var(--accent)"/>`;
+    }
+    svg.innerHTML = s;
+  }
+  function niceStep(raw) {
+    const p = Math.pow(10, Math.floor(Math.log10(Math.max(raw, 1))));
+    const n = raw / p;
+    return (n <= 1 ? 1 : n <= 2 ? 2 : n <= 2.5 ? 2.5 : n <= 5 ? 5 : 10) * p;
+  }
+
+  function renderScenarios(P) {
+    const gap = P.expenses + P.dcMax - P.income;
+    const stepAmt = gap > 1600 ? 500 : 250;
+    const amounts = new Set();
+    if (gap > 0) {
+      for (let a = 0; a < gap; a += stepAmt) amounts.add(a);
+      amounts.add(Math.ceil(gap));
+    } else amounts.add(0);
+    amounts.add(Math.round(P.extra));
+    const list = [...amounts].sort((a, b) => a - b);
+    const results = list.map(a => ({ a, r: simulate(P, a) }));
+    const finite = results.filter(x => x.r.covered !== Infinity).map(x => x.r.covered);
+    const maxM = Math.max(1, ...finite);
+    $("scen").innerHTML = results.map(({ a, r }) => {
+      const cur = Math.round(P.extra) === a ? " current" : "";
+      if (r.covered === Infinity) {
+        return `<tr class="${cur}" data-a="${a}"><td class="num">${fmt(a)}</td><td><span class="pill ok">Never runs out</span></td><td class="num">∞</td><td><div class="bar" style="width:100%"></div></td></tr>`;
+      }
+      const last = r.covered > 0 ? short(monthAt(P.start, r.covered - 1)) : "—";
+      return `<tr class="${cur}" data-a="${a}"><td class="num">${fmt(a)}</td><td>${last}</td><td class="num">${r.covered} mo</td><td><div class="bar" style="width:${(r.covered / maxM * 100).toFixed(1)}%;background:var(--warn)"></div></td></tr>`;
+    }).join("");
+  }
+
+  function renderLedger(P, r) {
+    const rows = r.rows.slice(0, 120);
+    $("ledger").innerHTML = rows.map((row, i) =>
+      `<tr><td>${short(monthAt(P.start, i))}</td><td class="num">${fmt(row.s)}</td><td class="num">${fmt(row.inc)}</td><td class="num">${fmt(row.exp)}</td><td class="num">${row.dc ? fmt(row.dc) : "—"}</td><td class="num${row.end < 0 ? " neg" : ""}">${fmt(row.end)}</td></tr>`
+    ).join("");
+  }
+
+  // Wiring
+  const extra = $("extra"), range = $("extraRange");
+  function syncRangeMax() {
+    const costs = [...document.querySelectorAll('.dc-line [data-role="cost"]')].map(num);
+    const gap = num($("expenses")) + Math.max(0, ...costs) - num($("income"));
+    range.max = Math.max(2000, Math.ceil((gap + 500) / 100) * 100);
+  }
+  const dcRange = $("dcRange"), dcChanges = $("dcChanges");
+  const daycare = document.querySelector(".daycare");
+  daycare.addEventListener("input", e => {
+    const line = e.target.closest(".dc-line"); if (!line) return;
+    const role = e.target.dataset.role;
+    if (role === "range") line.querySelector('[data-role="cost"]').value = e.target.value;
+    if (role === "cost") line.querySelector('[data-role="range"]').value = num(e.target);
+    syncRangeMax(); render();
+  });
+  dcChanges.addEventListener("click", e => {
+    const btn = e.target.closest("button.remove"); if (!btn) return;
+    btn.closest(".dc-line").remove(); syncRangeMax(); render();
+    $("dcAdd").focus();
+  });
+  let changeSeq = 0;
+  function addChange(cost, start) {
+    const n = ++changeSeq;
+    const div = document.createElement("div");
+    div.className = "dc-line";
+    div.innerHTML = `
+      <div class="dc-cost">
+        <label class="eyebrow" for="dcCost-${n}">New daycare cost / month</label>
+        <div class="dc-row">
+          <input id="dcRange-${n}" data-role="range" type="range" min="0" max="2500" step="25" value="${cost}" aria-label="New daycare cost slider">
+          <div class="money"><span>$</span><input id="dcCost-${n}" data-role="cost" type="number" inputmode="decimal" min="0" step="25" value="${cost}"></div>
+        </div>
+        <div class="dc-scale" aria-hidden="true"><span>$0</span><span>$1,250</span><span>$2,500</span></div>
+      </div>
+      <div class="field">
+        <label for="dcStart-${n}">Changes starting</label>
+        <input id="dcStart-${n}" data-role="start" type="month" value="${start}">
+      </div>
+      <button type="button" class="remove" aria-label="Remove this cost change">Remove</button>`;
+    dcChanges.appendChild(div);
+  }
+  $("dcAdd").addEventListener("click", () => {
+    const lines = [...document.querySelectorAll(".dc-line")];
+    const last = lines[lines.length - 1];
+    const lastCost = num(last.querySelector('[data-role="cost"]'));
+    const lastStart = last.querySelector('[data-role="start"]').value || DEFAULTS.dcStart;
+    const d = monthAt(lastStart, 7);
+    addChange(Math.max(0, lastCost - 1000), `${d.y}-${String(d.m + 1).padStart(2, "0")}`);
+    syncRangeMax(); render();
+  });
+  ["balance", "expenses", "income", "start"].forEach(id => $(id).addEventListener("input", () => { syncRangeMax(); render(); }));
+  extra.addEventListener("input", () => { range.value = num(extra); render(); });
+  range.addEventListener("input", () => { extra.value = range.value; render(); });
+  $("scen").addEventListener("click", e => {
+    const tr = e.target.closest("tr[data-a]"); if (!tr) return;
+    extra.value = tr.dataset.a; range.value = tr.dataset.a; render();
+  });
+  $("form").addEventListener("submit", e => e.preventDefault());
+  $("reset").addEventListener("click", () => {
+    Object.entries(DEFAULTS).forEach(([k, v]) => { $(k).value = v; });
+    range.value = 0; dcRange.value = DEFAULTS.dcCost; dcChanges.innerHTML = ""; syncRangeMax(); render();
+  });
+
+  syncRangeMax();
+  render();
+})();
+</script>
+</body>
+</html>
